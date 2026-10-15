@@ -211,6 +211,53 @@ footer.site-foot {
 .back-link { font-family: var(--font-hand); color: var(--ink-soft); text-decoration: none; }
 .back-link:hover { color: var(--accent); }
 
+/* ---- clap / "add a data point" ---- */
+.clap-wrap {
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  margin: 3em 0 1.2em; padding-top: 1.6em; border-top: 2px dashed var(--line);
+}
+.clap-caption { font-family: var(--font-hand); color: var(--ink-soft); font-size: 1.1rem; }
+.clap-btnrow { position: relative; display: inline-flex; align-items: center; gap: 14px; }
+.clap-btn {
+  position: relative; width: 66px; height: 66px; border-radius: 50%;
+  border: 2px dashed var(--accent); background: var(--panel);
+  display: grid; place-items: center; cursor: pointer; color: var(--accent);
+  transition: transform .12s ease, background .15s ease, color .15s ease;
+  -webkit-tap-highlight-color: transparent; touch-action: none;
+}
+.clap-btn:hover:not(:disabled) { background: var(--accent); color: var(--panel); }
+.clap-btn:active:not(:disabled) { transform: scale(.9); }
+.clap-btn:disabled { opacity: .6; cursor: default; }
+.clap-btn:focus-visible { outline: 2px solid var(--accent2); outline-offset: 3px; }
+.clap-btn svg { width: 32px; height: 32px; display: block; }
+.clap-count {
+  font-family: var(--font-display); font-weight: 700; font-size: 2rem; color: var(--ink);
+  min-width: 1.4ch; font-variant-numeric: tabular-nums;
+}
+.clap-mine { font-family: var(--font-hand); color: var(--ink-soft); font-size: .95rem; }
+
+.clap-float {
+  position: absolute; left: 33px; top: -16px; transform: translateX(-50%);
+  font-family: var(--font-display); font-weight: 700; color: var(--accent);
+  font-size: 1.4rem; pointer-events: none; animation: clap-float .9s ease forwards;
+}
+@keyframes clap-float {
+  0% { opacity: 0; transform: translate(-50%, 6px) scale(.7); }
+  30% { opacity: 1; transform: translate(-50%, -6px) scale(1.12); }
+  100% { opacity: 0; transform: translate(-50%, -28px) scale(1); }
+}
+.clap-particle {
+  position: absolute; left: 50%; top: 50%; border-radius: 50%;
+  background: var(--accent); pointer-events: none; animation: clap-burst .7s ease-out forwards;
+}
+@keyframes clap-burst {
+  0% { opacity: 1; transform: translate(-50%, -50%) translate(0, 0) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) translate(var(--tx), var(--ty)) scale(.3); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .clap-float, .clap-particle { animation-duration: .01ms; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
 }
