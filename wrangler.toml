@@ -1,0 +1,14 @@
+# Cloudflare config. Local dev uses platformProxy, which reads this file and
+# emulates the KV namespace below (no real id needed locally).
+#
+# For production: create a KV namespace once with
+#   npx wrangler kv namespace create CLAPS
+# then paste the returned id below (and/or bind "CLAPS" in the Cloudflare
+# Pages project settings -> Settings -> Bindings).
+name = "thelearningrate"
+compatibility_date = "2026-10-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[kv_namespaces]]
+binding = "CLAPS"
+id = "local-dev-placeholder"

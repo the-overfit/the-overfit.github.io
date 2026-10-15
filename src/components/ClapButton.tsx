@@ -14,52 +14,124 @@ interface Burst {
 /**
  * Medium-style clap, themed as "add a data point".
  *
- * Counts persist per-visitor in localStorage (the site is static). To make the
- * total shared across readers, replace loadCounts/saveTotal with calls to a
- * backend (e.g. a serverless counter + KV store) — the rest of the UI is unchanged.
+ * Reads the shared total from /api/claps/[post] (Cloudflare KV) on load, and
+ * debounces writes: your claps accumulate client-side and are sent in one POST
+ * after you stop. If the API is unavailable (e.g. local dev without a KV
+ * binding), it falls back to a per-visitor localStorage count so the UI still works.
  */
 export default function ClapButton({ postId }: Props) {
+  const api = `/api/claps/${encodeURIComponent(postId)}`;
   const totalKey = `tlr:claps:${postId}`;
   const mineKey = `tlr:claps:mine:${postId}`;
 
   const [total, setTotal] = useState(0);
   const [mine, setMine] = useState(0);
-  const [session, setSession] = useState(0); // claps added in the current burst of activity
+  const [session, setSession] = useState(0); // claps added in the current burst
   const [bursts, setBursts] = useState<Burst[]>([]);
 
   const mineRef = useRef(0);
   const totalRef = useRef(0);
+  const pendingRef = useRef(0); // claps added but not yet sent to the server
+  const serverOkRef = useRef<boolean | null>(null);
   const idRef = useRef(0);
   const idleRef = useRef<number | null>(null);
   const holdRef = useRef<number | null>(null);
+  const flushRef = useRef<number | null>(null);
 
-  useEffect(() => {
+  const readLS = (k: string) => {
     try {
-      const t = parseInt(localStorage.getItem(totalKey) || '0', 10) || 0;
-      const m = parseInt(localStorage.getItem(mineKey) || '0', 10) || 0;
-      totalRef.current = t;
-      mineRef.current = m;
-      setTotal(t);
-      setMine(m);
+      return parseInt(localStorage.getItem(k) || '0', 10) || 0;
     } catch {
-      /* private mode / blocked storage — start from zero */
+      return 0;
     }
+  };
+  const writeLS = (k: string, v: number) => {
+    try {
+      localStorage.setItem(k, String(v));
+    } catch {
+      /* ignore */
+    }
+  };
+
+  // Load: "mine" from localStorage; "total" from the server (LS as instant/fallback).
+  useEffect(() => {
+    const m = readLS(mineKey);
+    mineRef.current = m;
+    setMine(m);
+
+    const cached = readLS(totalKey);
+    totalRef.current = cached;
+    setTotal(cached);
+
+    let alive = true;
+    (async () => {
+      try {
+        const res = await fetch(api, { headers: { accept: 'application/json' } });
+        const data = await res.json();
+        if (!alive) return;
+        if (res.ok && !data.unavailable && typeof data.total === 'number') {
+          serverOkRef.current = true;
+          totalRef.current = data.total;
+          setTotal(data.total);
+          writeLS(totalKey, data.total);
+        } else {
+          serverOkRef.current = false;
+        }
+      } catch {
+        if (alive) serverOkRef.current = false;
+      }
+    })();
+    return () => {
+      alive = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const flush = useCallback(async () => {
+    if (pendingRef.current <= 0) return;
+    // API unavailable -> keep the optimistic localStorage total, nothing to send.
+    if (serverOkRef.current === false) {
+      writeLS(totalKey, totalRef.current);
+      pendingRef.current = 0;
+      return;
+    }
+    const delta = pendingRef.current;
+    pendingRef.current = 0;
+    try {
+      const res = await fetch(api, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ delta }),
+      });
+      const data = await res.json();
+      if (res.ok && !data.unavailable && typeof data.total === 'number') {
+        serverOkRef.current = true;
+        totalRef.current = data.total;
+        setTotal(data.total);
+        writeLS(totalKey, data.total);
+      } else {
+        serverOkRef.current = false;
+        writeLS(totalKey, totalRef.current);
+      }
+    } catch {
+      pendingRef.current += delta; // requeue for the next flush
+    }
+  }, [api, totalKey]);
+
+  const scheduleFlush = useCallback(() => {
+    if (flushRef.current) window.clearTimeout(flushRef.current);
+    flushRef.current = window.setTimeout(flush, 650);
+  }, [flush]);
 
   const addOne = useCallback(() => {
     if (mineRef.current >= MAX_PER_READER) return;
 
     mineRef.current += 1;
     totalRef.current += 1;
+    pendingRef.current += 1;
     setMine(mineRef.current);
     setTotal(totalRef.current);
-    try {
-      localStorage.setItem(mineKey, String(mineRef.current));
-      localStorage.setItem(totalKey, String(totalRef.current));
-    } catch {
-      /* ignore */
-    }
+    writeLS(mineKey, mineRef.current);
 
     // floating "+N" bubble that grows while you keep clapping
     setSession((s) => s + 1);
@@ -80,7 +152,9 @@ export default function ClapButton({ postId }: Props) {
     const id = ++idRef.current;
     setBursts((b) => [...b, { id, parts }]);
     window.setTimeout(() => setBursts((b) => b.filter((x) => x.id !== id)), 750);
-  }, [mineKey, totalKey]);
+
+    scheduleFlush();
+  }, [mineKey, scheduleFlush]);
 
   const startHold = useCallback(() => {
     addOne();
@@ -93,12 +167,46 @@ export default function ClapButton({ postId }: Props) {
       window.clearInterval(holdRef.current);
       holdRef.current = null;
     }
-  }, []);
+    flush(); // send what we have as soon as the press ends
+  }, [flush]);
 
-  useEffect(() => () => {
-    if (holdRef.current) window.clearInterval(holdRef.current);
-    if (idleRef.current) window.clearTimeout(idleRef.current);
-  }, []);
+  // Send any pending claps if the reader leaves the page.
+  useEffect(() => {
+    const onHide = () => {
+      if (pendingRef.current > 0 && serverOkRef.current !== false) {
+        const delta = pendingRef.current;
+        pendingRef.current = 0;
+        try {
+          fetch(api, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ delta }),
+            keepalive: true,
+          });
+        } catch {
+          /* ignore */
+        }
+      }
+    };
+    const onVis = () => {
+      if (document.visibilityState === 'hidden') onHide();
+    };
+    document.addEventListener('visibilitychange', onVis);
+    window.addEventListener('pagehide', onHide);
+    return () => {
+      document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('pagehide', onHide);
+    };
+  }, [api]);
+
+  useEffect(
+    () => () => {
+      if (holdRef.current) window.clearInterval(holdRef.current);
+      if (idleRef.current) window.clearTimeout(idleRef.current);
+      if (flushRef.current) window.clearTimeout(flushRef.current);
+    },
+    []
+  );
 
   const maxed = mine >= MAX_PER_READER;
 
