@@ -1,6 +1,7 @@
 ---
 import '../styles/global.css';
 import Logo from '../components/Logo.astro';
+import Search from '../components/Search.tsx';
 
 interface Props {
   title: string;
@@ -38,6 +39,7 @@ const { title, description = 'Breaking down the hard parts of machine learning, 
           <a href="/">Home</a>
           <a href="/tags">Tags</a>
           <a href="/about">About</a>
+          <Search client:idle />
         </nav>
       </header>
 
