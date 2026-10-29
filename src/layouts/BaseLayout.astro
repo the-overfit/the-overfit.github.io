@@ -6,8 +6,21 @@ import Search from '../components/Search.tsx';
 interface Props {
   title: string;
   description?: string;
+  /** social-share image: a path (in public/) or a full URL. Defaults to the site card. */
+  image?: string;
+  /** Open Graph type: 'website' for landing pages, 'article' for a post. */
+  type?: 'website' | 'article';
 }
-const { title, description = 'Breaking down the hard parts of machine learning, one sketch at a time.' } = Astro.props;
+const {
+  title,
+  description = 'Breaking down the hard parts of machine learning, one sketch at a time.',
+  image,
+  type = 'website',
+} = Astro.props;
+
+// Absolute URLs for canonical link + share image (social scrapers need absolute).
+const canonicalURL = new URL(Astro.url.pathname, Astro.site);
+const ogImageURL = new URL(image ?? '/og-default.png', Astro.site);
 ---
 
 <!doctype html>
@@ -21,6 +34,25 @@ const { title, description = 'Breaking down the hard parts of machine learning, 
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <title>{title}</title>
     <meta name="description" content={description} />
+    <link rel="canonical" href={canonicalURL} />
+
+    {/* Open Graph — rich previews when the link is shared on social / chat apps */}
+    <meta property="og:type" content={type} />
+    <meta property="og:url" content={canonicalURL} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={ogImageURL} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:site_name" content="The Overfit" />
+    <meta property="og:locale" content="en_US" />
+
+    {/* Twitter / X large-image card */}
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImageURL} />
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
