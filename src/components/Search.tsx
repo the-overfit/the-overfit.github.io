@@ -1,13 +1,36 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Fuse from 'fuse.js';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-interface Item {
-  slug: string;
+/**
+ * Full-text search backed by Pagefind.
+ *
+ * Pagefind indexes the built HTML at `astro build` time and shards the index
+ * into fragments, so the browser only downloads the pieces a given query needs.
+ * That keeps search fast whether the site has four posts or forty thousand —
+ * nothing like the whole-index-in-the-browser approach a client-side fuzzy
+ * matcher needs. The runtime lives at `/pagefind/pagefind.js`; we load it lazily
+ * the first time search opens so it never ships in the main bundle.
+ */
+
+interface Result {
+  url: string;
   title: string;
-  description: string;
-  tags: string[];
-  date: string;
-  body: string;
+  excerpt: string; // sanitized HTML from Pagefind, with matches wrapped in <mark>
+}
+
+// Loaded once, the first time the user opens search.
+let pagefindPromise: Promise<any> | null = null;
+function loadPagefind(): Promise<any> {
+  if (!pagefindPromise) {
+    const url = `${import.meta.env.BASE_URL}pagefind/pagefind.js`.replace('//', '/');
+    pagefindPromise = import(/* @vite-ignore */ url)
+      .then(async (pf) => {
+        await pf.options?.({ excerptLength: 22 });
+        await pf.init?.();
+        return pf;
+      })
+      .catch(() => null);
+  }
+  return pagefindPromise;
 }
 
 function escapeHtml(s: string): string {
@@ -16,59 +39,23 @@ function escapeHtml(s: string): string {
   );
 }
 
-/** Escape text, then wrap case-insensitive matches of `q` in <mark>. */
-function highlight(text: string, q: string): string {
-  const safe = escapeHtml(text);
-  const term = q.trim();
-  if (!term) return safe;
-  try {
-    const re = new RegExp(`(${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'ig');
-    return safe.replace(re, '<mark>$1</mark>');
-  } catch {
-    return safe;
-  }
-}
-
-/** A short snippet of body text around the first match of the query. */
-function snippet(item: Item, q: string): string {
-  const term = q.trim().toLowerCase();
-  const base = item.description || item.body;
-  if (!term) return base.slice(0, 120);
-  const hay = (item.body || item.description).toLowerCase();
-  const idx = hay.indexOf(term);
-  if (idx === -1) return base.slice(0, 120);
-  const src = item.body || item.description;
-  const start = Math.max(0, idx - 40);
-  return (start > 0 ? '…' : '') + src.slice(start, start + 120).trim() + '…';
-}
-
 export default function Search() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const [data, setData] = useState<Item[] | null>(null);
+  const [results, setResults] = useState<Result[]>([]);
+  const [status, setStatus] = useState<'idle' | 'ready' | 'error'>('idle');
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const loadedRef = useRef(false);
-
-  const load = useCallback(async () => {
-    if (loadedRef.current) return;
-    loadedRef.current = true;
-    try {
-      const res = await fetch('/search.json');
-      setData(await res.json());
-    } catch {
-      setData([]);
-    }
-  }, []);
 
   const openSearch = useCallback(() => {
     setOpen(true);
-    load();
-  }, [load]);
+    loadPagefind().then((pf) => setStatus(pf ? 'ready' : 'error'));
+  }, []);
 
   const close = useCallback(() => {
     setOpen(false);
     setQuery('');
+    setResults([]);
     setActive(0);
   }, []);
 
@@ -97,35 +84,43 @@ export default function Search() {
     }
   }, [open]);
 
-  const fuse = useMemo(
-    () =>
-      data
-        ? new Fuse(data, {
-            keys: [
-              { name: 'title', weight: 0.5 },
-              { name: 'tags', weight: 0.3 },
-              { name: 'description', weight: 0.2 },
-              { name: 'body', weight: 0.15 },
-            ],
-            threshold: 0.4,
-            ignoreLocation: true,
-            minMatchCharLength: 2,
-          })
-        : null,
-    [data]
-  );
+  // Debounced query against Pagefind. Each result's body loads on demand, so we
+  // only pull the data for the handful of rows we actually show.
+  useEffect(() => {
+    const term = query.trim();
+    setActive(0);
+    if (!term) {
+      setResults([]);
+      return;
+    }
+    let cancelled = false;
+    const t = window.setTimeout(async () => {
+      const pf = await loadPagefind();
+      if (cancelled) return;
+      if (!pf) {
+        setStatus('error');
+        return;
+      }
+      const search = await pf.search(term);
+      if (cancelled || !search) return;
+      const data = await Promise.all(search.results.slice(0, 8).map((r: any) => r.data()));
+      if (cancelled) return;
+      setResults(
+        data.map((d: any) => ({
+          url: d.url,
+          title: d.meta?.title || d.url,
+          excerpt: d.excerpt as string,
+        }))
+      );
+    }, 120);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
+  }, [query]);
 
-  const results: Item[] = useMemo(() => {
-    if (!data) return [];
-    if (!query.trim()) return data.slice(0, 6);
-    if (!fuse) return [];
-    return fuse.search(query).slice(0, 8).map((r) => r.item);
-  }, [data, fuse, query]);
-
-  useEffect(() => setActive(0), [query]);
-
-  const go = useCallback((slug: string) => {
-    window.location.href = `/posts/${slug}/`;
+  const go = useCallback((url: string) => {
+    window.location.href = url;
   }, []);
 
   const onInputKey = (e: React.KeyboardEvent) => {
@@ -137,9 +132,11 @@ export default function Search() {
       setActive((a) => Math.max(a - 1, 0));
     } else if (e.key === 'Enter' && results[active]) {
       e.preventDefault();
-      go(results[active].slug);
+      go(results[active].url);
     }
   };
+
+  const hasQuery = query.trim().length > 0;
 
   return (
     <>
@@ -170,7 +167,7 @@ export default function Search() {
                 ref={inputRef}
                 className="search-input"
                 type="search"
-                placeholder="Search explainers…"
+                placeholder="Search the full text…"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={onInputKey}
@@ -181,44 +178,42 @@ export default function Search() {
             </div>
 
             <ul className="search-results">
-              {data === null && <li className="search-empty">Loading…</li>}
-              {data !== null && results.length === 0 && (
+              {status === 'error' && (
+                <li className="search-empty">
+                  Search index isn’t available yet — build the site to generate it.
+                </li>
+              )}
+              {status !== 'error' && !hasQuery && (
+                <li className="search-empty">Type to search across every post.</li>
+              )}
+              {status !== 'error' && hasQuery && results.length === 0 && (
                 <li className="search-empty">No matches for “{query}”.</li>
               )}
               {results.map((r, i) => (
-                <li key={r.slug}>
+                <li key={r.url}>
                   <a
-                    href={`/posts/${r.slug}/`}
+                    href={r.url}
                     className={`search-item${i === active ? ' is-active' : ''}`}
                     onMouseEnter={() => setActive(i)}
                     onClick={(e) => {
                       e.preventDefault();
-                      go(r.slug);
+                      go(r.url);
                     }}
                   >
                     <span
                       className="search-item-title"
-                      dangerouslySetInnerHTML={{ __html: highlight(r.title, query) }}
+                      dangerouslySetInnerHTML={{ __html: escapeHtml(r.title) }}
                     />
                     <span
                       className="search-item-snip"
-                      dangerouslySetInnerHTML={{ __html: highlight(snippet(r, query), query) }}
+                      dangerouslySetInnerHTML={{ __html: r.excerpt }}
                     />
-                    {r.tags.length > 0 && (
-                      <span className="search-item-tags">
-                        {r.tags.map((t) => (
-                          <span key={t} className="search-item-tag">#{t}</span>
-                        ))}
-                      </span>
-                    )}
                   </a>
                 </li>
               ))}
             </ul>
 
-            <div className="search-hint">
-              {query.trim() ? '' : 'recent posts · '}↑↓ navigate · ↵ open · esc close
-            </div>
+            <div className="search-hint">↑↓ navigate · ↵ open · esc close</div>
           </div>
         </div>
       )}

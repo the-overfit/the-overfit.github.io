@@ -1,20 +1,18 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none"
      stroke-linecap="round" stroke-linejoin="round">
   <rect x="3" y="3" width="58" height="58" rx="15" fill="#f6f0e3"/>
-  <!-- density bars -->
-  <g stroke="#cf6336" stroke-width="3" opacity="0.5">
-    <line x1="14" y1="46" x2="14" y2="42"/>
-    <line x1="20" y1="46" x2="20" y2="34"/>
-    <line x1="26" y1="46" x2="26" y2="24"/>
-    <line x1="32" y1="46" x2="32" y2="17"/>
-    <line x1="38" y1="46" x2="38" y2="24"/>
-    <line x1="44" y1="46" x2="44" y2="34"/>
-    <line x1="50" y1="46" x2="50" y2="42"/>
+  <!-- the signal it should have learned -->
+  <path d="M12 46 L52 16" stroke="#7a6f5d" stroke-width="2.2" stroke-dasharray="4 4"/>
+  <!-- the overfit curve chasing every point -->
+  <path d="M11 49 C 14 39 15 42 18 42 C 22 52 26 31 30 39 C 34 47 37 32 41 40 C 44 46 47 16 50 24 C 52 30 53 22 54 19"
+        stroke="#cf6336" stroke-width="3.2"/>
+  <!-- scattered points -->
+  <g stroke="#2c2823" stroke-width="1.8">
+    <circle cx="18" cy="42" r="2.8" fill="#f6f0e3"/>
+    <circle cx="30" cy="39" r="2.8" fill="#f6f0e3"/>
+    <circle cx="41" cy="40" r="2.8" fill="#f6f0e3"/>
+    <circle cx="50" cy="24" r="2.8" fill="#f6f0e3"/>
   </g>
-  <!-- bell curve -->
-  <path d="M10 46 C 22 46 25 19 32 15 C 39 19 42 46 54 46" stroke="#2c2823" stroke-width="3.2"/>
-  <!-- baseline -->
-  <path d="M9 46 Q 22 47 32 45.6 T 55 46" stroke="#7a6f5d" stroke-width="2.4"/>
-  <!-- mode -->
-  <circle cx="32" cy="15" r="4.2" fill="#3a7ca5" stroke="#f6f0e3" stroke-width="1.5"/>
+  <!-- the outlier it chased -->
+  <circle cx="47" cy="31" r="4" fill="#3a7ca5" stroke="#f6f0e3" stroke-width="1.5"/>
 </svg>

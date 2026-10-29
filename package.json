@@ -1,5 +1,5 @@
 {
-  "name": "the-learning-rate",
+  "name": "the-overfit",
   "type": "module",
   "version": "0.1.0",
   "private": true,
@@ -10,11 +10,11 @@
     "astro": "astro"
   },
   "dependencies": {
-    "@astrojs/cloudflare": "^12.6.13",
     "@astrojs/mdx": "^4.2.0",
     "@astrojs/react": "^4.2.0",
     "astro": "^5.6.1",
-    "fuse.js": "^7.5.0",
+    "astro-pagefind": "^2.0.1",
+    "pagefind": "^1.5.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-rough-notation": "^1.0.5",

@@ -1,8 +1,10 @@
 ---
-// The Learning Rate mark: a hand-drawn probability distribution —
-// density bars under a sketchy bell curve, with a dot at the mode.
-// Colors come from CSS tokens, so it follows light/dark automatically.
-// Animates in on load; gently "resamples" on hover (see styles below).
+// The Overfit mark: a hand-drawn scatter with a squiggly curve threading
+// through every single point — the picture of a model that memorized the
+// noise instead of the trend. The faint dashed line is the signal it should
+// have learned; the teal dot is the outlier it detoured to chase. Colors
+// come from CSS tokens, so it follows light/dark. Animates in on load;
+// gently "resamples" on hover (see styles below).
 interface Props {
   height?: number;
   class?: string;
@@ -12,110 +14,109 @@ const width = Math.round((height * 68) / 48);
 ---
 
 <svg
-  class:list={['tlr-logo', className]}
+  class:list={['of-logo', className]}
   width={width}
   height={height}
   viewBox="0 0 68 48"
   fill="none"
   role="img"
-  aria-label="The Learning Rate logo — a probability distribution"
+  aria-label="The Overfit logo — a wiggly curve chasing every point in a scatter"
   stroke-linecap="round"
   stroke-linejoin="round"
 >
-  <!-- density bars (the "probability mass") -->
-  <g stroke="var(--accent)" stroke-width="2.8" opacity="0.5">
-    <line class="tlr-bar" x1="16" y1="40" x2="16" y2="37" />
-    <line class="tlr-bar" x1="22" y1="40" x2="22" y2="29" />
-    <line class="tlr-bar" x1="28" y1="40" x2="28" y2="18.5" />
-    <line class="tlr-bar" x1="34" y1="40" x2="34" y2="13" />
-    <line class="tlr-bar" x1="40" y1="40" x2="40" y2="18.5" />
-    <line class="tlr-bar" x1="46" y1="40" x2="46" y2="29" />
-    <line class="tlr-bar" x1="52" y1="40" x2="52" y2="37" />
-  </g>
+  <!-- the signal it should have learned -->
+  <path class="of-true" d="M8 37 L60 13" stroke="var(--ink-soft)" stroke-width="2" stroke-dasharray="4 4" />
 
-  <!-- the bell curve, drawn twice with a tiny offset for a sketchy feel -->
+  <!-- the overfit curve, drawn twice with a tiny offset for a sketchy feel -->
   <path
-    class="tlr-bell"
-    d="M8 40 C 20 40 23 13 34 11 C 45 13 48 40 60 40"
-    stroke="var(--ink)"
+    class="of-curve"
+    d="M8 39 C 10 31 11 33 13 33 C 16 41 19 24 22 30 C 25 36 27 25 30 31 C 33 39 36 13 38 19 C 41 26 45 31 47 25 C 50 18 54 10 56 13 C 58 16 59 14 60 12"
+    stroke="var(--accent)"
     stroke-width="3"
   />
   <path
-    class="tlr-bell2"
-    d="M9 40.4 C 21 39.3 24 14.6 34 12.2 C 44 14.4 47 39.2 59 40.3"
+    class="of-curve2"
+    d="M8.6 39.4 C 10.6 31.5 11.6 33.4 13.4 33.4 C 16.3 40.4 19.3 24.6 22.3 30.4 C 25.2 35.6 27.3 25.6 30.4 31.3 C 33.3 38.4 36.3 13.8 38.4 19.4 C 41.2 26.3 45.3 31.3 47.3 25.4 C 50.2 18.6 54.2 10.7 56.3 13.4 C 58 16 59 14.4 60.4 12.4"
     stroke="var(--ink)"
-    stroke-width="1.7"
+    stroke-width="1.5"
   />
 
-  <!-- wavy baseline -->
-  <path d="M6 40 Q 20 41.2 34 39.7 T 62 40" stroke="var(--ink-soft)" stroke-width="2.2" />
+  <!-- the scattered points the model memorized -->
+  <g class="of-dots" stroke="var(--ink)" stroke-width="1.6">
+    <circle cx="13" cy="33" r="2.3" fill="var(--bg)" />
+    <circle cx="22" cy="30" r="2.3" fill="var(--bg)" />
+    <circle cx="30" cy="31" r="2.3" fill="var(--bg)" />
+    <circle cx="38" cy="19" r="2.3" fill="var(--bg)" />
+    <circle cx="56" cy="13" r="2.3" fill="var(--bg)" />
+  </g>
 
-  <!-- the mode (a little "learning rate" ball at the peak) -->
-  <circle class="tlr-dot" cx="34" cy="11" r="3.8" fill="var(--accent2)" stroke="var(--bg)" stroke-width="1.3" />
+  <!-- the outlier it chased -->
+  <circle class="of-dot" cx="47" cy="25" r="3.6" fill="var(--accent2)" stroke="var(--bg)" stroke-width="1.3" />
 </svg>
 
 <style>
   /* ---- entrance (plays once on load) ---- */
-  .tlr-bar {
-    transform-box: fill-box;
-    transform-origin: bottom;
-    transform: scaleY(0);
-    animation: tlr-rise 0.5s cubic-bezier(0.3, 1.3, 0.5, 1) both;
-  }
-  .tlr-bar:nth-child(1) { animation-delay: 0.05s; }
-  .tlr-bar:nth-child(2) { animation-delay: 0.1s; }
-  .tlr-bar:nth-child(3) { animation-delay: 0.15s; }
-  .tlr-bar:nth-child(4) { animation-delay: 0.2s; }
-  .tlr-bar:nth-child(5) { animation-delay: 0.25s; }
-  .tlr-bar:nth-child(6) { animation-delay: 0.3s; }
-  .tlr-bar:nth-child(7) { animation-delay: 0.35s; }
-
-  .tlr-bell {
-    stroke-dasharray: 300;
-    stroke-dashoffset: 300;
-    animation: tlr-draw 0.9s ease forwards;
-  }
-  .tlr-bell2 {
+  .of-true {
+    stroke-dasharray: 4 4;
     opacity: 0;
-    animation: tlr-fade 0.5s ease 0.6s forwards;
+    animation: of-fade 0.5s ease 0.1s forwards;
   }
-  .tlr-dot {
+  .of-curve {
+    stroke-dasharray: 160;
+    stroke-dashoffset: 160;
+    animation: of-draw 1s ease forwards;
+  }
+  .of-curve2 {
+    opacity: 0;
+    animation: of-fade2 0.5s ease 0.6s forwards;
+  }
+  .of-dots circle {
     transform-box: fill-box;
     transform-origin: center;
     transform: scale(0);
-    animation: tlr-pop 0.45s cubic-bezier(0.3, 1.6, 0.5, 1) 0.7s both;
+    animation: of-pop 0.4s cubic-bezier(0.3, 1.6, 0.5, 1) both;
+  }
+  .of-dots circle:nth-child(1) { animation-delay: 0.45s; }
+  .of-dots circle:nth-child(2) { animation-delay: 0.55s; }
+  .of-dots circle:nth-child(3) { animation-delay: 0.65s; }
+  .of-dots circle:nth-child(4) { animation-delay: 0.75s; }
+  .of-dots circle:nth-child(5) { animation-delay: 0.85s; }
+  .of-dot {
+    transform-box: fill-box;
+    transform-origin: center;
+    transform: scale(0);
+    animation: of-pop 0.45s cubic-bezier(0.3, 1.6, 0.5, 1) 0.95s both;
   }
 
-  @keyframes tlr-rise { to { transform: scaleY(1); } }
-  @keyframes tlr-draw { to { stroke-dashoffset: 0; } }
-  @keyframes tlr-fade { to { opacity: 0.55; } }
-  @keyframes tlr-pop { to { transform: scale(1); } }
+  @keyframes of-draw { to { stroke-dashoffset: 0; } }
+  @keyframes of-fade { to { opacity: 0.7; } }
+  @keyframes of-fade2 { to { opacity: 0.55; } }
+  @keyframes of-pop { to { transform: scale(1); } }
 
-  /* ---- hover: the distribution "resamples" ---- */
-  :global(.brand):hover .tlr-dot,
-  .tlr-logo:hover .tlr-dot {
-    animation: tlr-bob 1.4s ease-in-out infinite;
+  /* ---- hover: the curve "resamples" ---- */
+  :global(.brand):hover .of-dot,
+  .of-logo:hover .of-dot {
+    animation: of-bob 1.4s ease-in-out infinite;
   }
-  :global(.brand):hover .tlr-bar,
-  .tlr-logo:hover .tlr-bar {
-    animation: tlr-wiggle 1.1s ease-in-out infinite;
+  :global(.brand):hover .of-curve,
+  .of-logo:hover .of-curve {
+    animation: of-jitter 1.1s ease-in-out infinite;
   }
-  :global(.brand):hover .tlr-bar:nth-child(even),
-  .tlr-logo:hover .tlr-bar:nth-child(even) { animation-delay: 0.18s; }
 
-  @keyframes tlr-bob {
+  @keyframes of-bob {
     0%, 100% { transform: translateY(0); }
     50% { transform: translateY(-2.5px); }
   }
-  @keyframes tlr-wiggle {
-    0%, 100% { transform: scaleY(1); }
-    50% { transform: scaleY(1.14); }
+  @keyframes of-jitter {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(1px); }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .tlr-bar { transform: scaleY(1); animation: none; }
-    .tlr-bell { stroke-dashoffset: 0; animation: none; }
-    .tlr-bell2 { opacity: 0.55; animation: none; }
-    .tlr-dot { transform: scale(1); animation: none; }
+    .of-true { opacity: 0.7; animation: none; }
+    .of-curve { stroke-dashoffset: 0; animation: none; }
+    .of-curve2 { opacity: 0.55; animation: none; }
+    .of-dots circle { transform: scale(1); animation: none; }
+    .of-dot { transform: scale(1); animation: none; }
   }
 </style>

@@ -1,4 +1,4 @@
-# The Learning Rate
+# The Overfit
 
 A hand-drawn, illustrated blog for breaking down the hard parts of machine learning —
 sketchy diagrams, little animations, and as little jargon as it can get away with.
@@ -68,4 +68,4 @@ Interactive components need a `client:*` directive — `client:visible` is a goo
 
 ## License
 
-© The Learning Rate. All rights reserved.
+© The Overfit. All rights reserved.

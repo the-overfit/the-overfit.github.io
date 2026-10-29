@@ -2,16 +2,12 @@
 import { defineConfig } from 'astro/config';
 import react from '@astrojs/react';
 import mdx from '@astrojs/mdx';
-import cloudflare from '@astrojs/cloudflare';
+import pagefind from 'astro-pagefind';
 
-// Pages stay static (output: 'static' is the default). The clap API route opts
-// into on-demand rendering via `export const prerender = false`. The adapter
-// lets that route run on Cloudflare, and platformProxy emulates the KV binding
-// locally so `astro dev` works without a deploy.
+// Fully static site (output: 'static' is the default), deployed to GitHub Pages
+// at the org root URL.
 // https://astro.build/config
 export default defineConfig({
-  integrations: [react(), mdx()],
-  adapter: cloudflare({
-    platformProxy: { enabled: true },
-  }),
+  site: 'https://the-overfit.github.io',
+  integrations: [react(), mdx(), pagefind()],
 });
